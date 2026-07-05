@@ -40,6 +40,7 @@ jobs:
             npx cap add android
           fi
           npx cap sync android
+              npx cordova-res android --skip-config --copy
 
       - name: Assemble debug APK
         working-directory: android
