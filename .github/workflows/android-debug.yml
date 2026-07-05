@@ -53,3 +53,4 @@ jobs:
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
+    # generate icons
