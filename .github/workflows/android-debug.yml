@@ -40,7 +40,18 @@ jobs:
             npx cap add android
           fi
           npx cap sync android
-              npx cordova-res android --skip-config --copy
+          npx cordova-res android --skip-config --copy
+
+      - name: Fix adaptive launcher icon
+        run: |
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+          # Ensure round icons exist by copying the generated launcher icons if missing
+          for dir in android/app/src/main/res/mipmap-*; do
+            if [ -f "$dir/ic_launcher.png" ] && [ ! -f "$dir/ic_launcher_round.png" ]; then
+              cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
+            fi
+          done
 
       - name: Assemble debug APK
         working-directory: android
@@ -53,4 +64,3 @@ jobs:
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
-    # generate icons
