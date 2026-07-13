@@ -1,6 +1,9 @@
 name: Android RuStore Release
 
 on:
+  push:
+    branches:
+      - rustore-release
   workflow_dispatch:
     inputs:
       version_name:
@@ -55,8 +58,8 @@ jobs:
 
       - name: Configure release version and permissions
         env:
-          VERSION_NAME: ${{ inputs.version_name }}
-          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name || '1.0.0' }}
+          VERSION_CODE: ${{ inputs.version_code || '1' }}
         run: node scripts/configure-android-release.mjs
 
       - name: Fix adaptive launcher icon
@@ -125,7 +128,7 @@ jobs:
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: sintagma-rustore-${{ inputs.version_name }}-${{ inputs.version_code }}
+          name: sintagma-rustore-${{ inputs.version_name || '1.0.0' }}-${{ inputs.version_code || '1' }}
           path: android/app/build/outputs/apk/release/app-release-signed.apk
           if-no-files-found: error
           retention-days: 30
