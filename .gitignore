@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+*.jks
+*.keystore
+keystore.properties
+release-signing.properties
 
 # Editor directories and files
 .vscode/*

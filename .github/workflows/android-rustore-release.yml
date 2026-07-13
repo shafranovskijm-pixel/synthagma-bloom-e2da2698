@@ -1,0 +1,131 @@
+name: Android RuStore Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: Public version, for example 1.0.0
+        required: true
+        default: 1.0.0
+        type: string
+      version_code:
+        description: Increasing integer used by Android and RuStore
+        required: true
+        default: '1'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build signed RuStore APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web assets
+        env:
+          NODE_OPTIONS: --max_old_space_size=4096
+        run: npm run build
+
+      - name: Add and sync Android platform
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+          npx cordova-res android --skip-config --copy
+
+      - name: Configure release version and permissions
+        env:
+          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_CODE: ${{ inputs.version_code }}
+        run: node scripts/configure-android-release.mjs
+
+      - name: Fix adaptive launcher icon
+        run: |
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+          for dir in android/app/src/main/res/mipmap-*; do
+            if [ -f "$dir/ic_launcher.png" ] && [ ! -f "$dir/ic_launcher_round.png" ]; then
+              cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
+            fi
+          done
+
+      - name: Validate signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for variable in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!variable}" ]; then
+              echo "Missing required GitHub secret: $variable" >&2
+              exit 1
+            fi
+          done
+
+      - name: Decode release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          KEYSTORE_PATH="$RUNNER_TEMP/sintagma-release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Expose Android signing tools
+        run: |
+          BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          if [ -z "$BUILD_TOOLS_DIR" ]; then
+            echo "Android build-tools were not found" >&2
+            exit 1
+          fi
+          echo "$BUILD_TOOLS_DIR" >> "$GITHUB_PATH"
+
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          npx cap build android \
+            --androidreleasetype APK \
+            --keystorepath "$KEYSTORE_PATH" \
+            --keystorepass "$ANDROID_KEYSTORE_PASSWORD" \
+            --keystorealias "$ANDROID_KEY_ALIAS" \
+            --keystorealiaspass "$ANDROID_KEY_PASSWORD" \
+            --signing-type apksigner
+
+      - name: Verify APK signature and checksum
+        run: |
+          APK_PATH="android/app/build/outputs/apk/release/app-release-signed.apk"
+          test -f "$APK_PATH"
+          apksigner verify --verbose --print-certs "$APK_PATH"
+          sha256sum "$APK_PATH"
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sintagma-rustore-${{ inputs.version_name }}-${{ inputs.version_code }}
+          path: android/app/build/outputs/apk/release/app-release-signed.apk
+          if-no-files-found: error
+          retention-days: 30
