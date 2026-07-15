@@ -1,8 +1,8 @@
 import "./index.css";
 import { installProxyFetch } from "./utils/proxyFetch";
 
-// Перехватчик fetch для обхода корпоративных блокировок Supabase-доменов
-// через резервные субдомены (api/functions/storage.sintagma.com.ru)
+// Перехватчик API, WebSocket и облачных ресурсов Supabase. В Android всё
+// направляется через публичный Nginx-прокси до первого рендера приложения.
 installProxyFetch();
 
 // Cyrillic domain (синтагма.рф) больше НЕ редиректится автоматически —
