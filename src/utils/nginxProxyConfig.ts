@@ -22,7 +22,7 @@ map $http_origin $cors_origin {
     "~^https?://[a-z0-9-]+\\.twc1\\.net$"                  $http_origin;
     "~^https?://[a-z0-9-]+\\.lovable\\.app$"               $http_origin;
     "~^https?://[a-z0-9-]+\\.lovableproject\\.com$"        $http_origin;
-    "~^http://localhost(:[0-9]+)?$"                       $http_origin;
+    "~^https?://localhost(:[0-9]+)?$"                    $http_origin;
 }
 
 server {

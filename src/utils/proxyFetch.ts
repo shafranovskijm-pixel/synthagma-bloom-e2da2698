@@ -31,10 +31,10 @@ const SUPABASE_HOST = (() => {
   return 'atxwvjxbqjgkbjlhsdch.supabase.co';
 })();
 
-// Базовый URL прокси-сервера. Сейчас legacy-домен api.sintagma.com.ru
-// больше не используется — fallback идёт через same-origin Nginx (/sb-*),
-// если он настроен на том же хосте, где живёт фронтенд.
-const PROXY_BASE_URL = '';
+// Публичный Nginx-прокси на Timeweb. В Android WebView origin приложения —
+// https://localhost, поэтому same-origin fallback указывал бы на сам телефон.
+// Отдельный HTTPS-домен гарантирует, что native-сборка всегда идёт через VDS.
+const PROXY_BASE_URL = 'https://api.xn--80aaiswd0ak.xn--p1ai';
 
 // Префиксы — должны совпадать с Nginx-конфигом на VDS.
 const SAME_ORIGIN_PREFIX = {
@@ -68,6 +68,9 @@ const FORCE_PROXY_HOSTS_EXACT = new Set<string>([]);
 function isForcedProxyHost(): boolean {
   if (typeof window === 'undefined') return false;
   const h = window.location.hostname;
+  // Стандартный origin Capacitor Android. Обычная локальная Vite-разработка
+  // работает на http://localhost и по-прежнему использует lazy fallback.
+  if (h === 'localhost' && window.location.protocol === 'https:') return true;
   if (FORCE_PROXY_HOSTS_EXACT.has(h)) return true;
   return false;
 }
